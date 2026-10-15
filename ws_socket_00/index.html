@@ -1,0 +1,20 @@
+<html>
+
+<head>
+  <script>
+    let webSocket = new WebSocket(location.origin.replace(/^http/, 'ws'));
+
+    let el;
+    el = document.getElementById('num');
+
+    webSocket.onmessage = (event) => {
+      el.innerHTML = 'Numero a caso: ' + event.data;
+    };
+  </script>
+</head>
+
+<body>
+  <p id="num"></p>
+</body>
+
+</html>
