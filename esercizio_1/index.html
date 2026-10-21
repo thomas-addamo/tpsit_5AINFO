@@ -1,0 +1,39 @@
+<html>
+
+<head>
+   <style type="text/css">
+      #oggetto
+      {
+         top:100px;
+         left:0px;
+         background-color:red;
+         color:white;
+         position:absolute;
+         height:50px;
+         width:50px;
+         text-align:center;
+         font-size:16px;
+         border:1px solid black;
+      }
+  </style>
+
+  <script>
+    let webSocket = new WebSocket(location.origin.replace(/^http/, 'ws'));
+    let el;
+
+    webSocket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      el = document.getElementById('oggetto');
+
+      el.style.left = data.position.x + 'px';
+      el.style.top = data.position.y + 'px';
+      el.innerHTML = data.position.x;
+     };
+  </script>
+</head>
+
+<body>
+   <div id='oggetto'></div>
+</body>
+
+</html>
