@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contatori Rosso/Blu</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; font-family: system-ui, sans-serif; background: #f4f4f4; }
+  #info { position: fixed; top: 8px; left: 8px; background: #fff; padding: 6px 10px; border-radius: 6px; box-shadow: 0 1px 4px #0003; z-index: 10; }
+  .box {
+    position: absolute; width: 160px; height: 160px; border-radius: 12px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; font-size: 2.4rem; font-weight: bold; user-select: none; cursor: pointer;
+    transition: transform .08s;
+  }
+  .box:active { transform: scale(.95); }
+  .box small { font-size: .9rem; font-weight: normal; }
+  #red  { background: #d62828; }
+  #blue { background: #1d4ed8; }
+  .disabled { opacity: .45; cursor: not-allowed; }
+</style>
+</head>
+<body>
+<div id="info">Connessione…</div>
+<div id="red"  class="box"><span id="redCount">0</span><small>ROSSO (dispari)</small></div>
+<div id="blue" class="box"><span id="blueCount">0</span><small>BLU (pari)</small></div>
+
+<script>
+const info = document.getElementById('info');
+const boxes = {
+  red: document.getElementById('red'),
+  blue: document.getElementById('blue'),
+};
+const counts = {
+  red: document.getElementById('redCount'),
+  blue: document.getElementById('blueCount'),
+};
+
+function placeRandomly() {
+  const size = 160;
+  const margin = 20;
+  const maxX = Math.max(0, innerWidth - size - margin);
+  const maxY = Math.max(0, innerHeight - size - margin);
+  const rnd = (max) => margin + Math.random() * (max - margin);
+
+  let r;
+  let b;
+  let tries = 0;
+
+  do {
+    r = { x: rnd(maxX), y: rnd(maxY) };
+    b = { x: rnd(maxX), y: rnd(maxY) };
+    tries++;
+  } while (tries < 100 && Math.abs(r.x - b.x) < size && Math.abs(r.y - b.y) < size);
+
+  boxes.red.style.left = r.x + 'px';
+  boxes.red.style.top = r.y + 'px';
+  boxes.blue.style.left = b.x + 'px';
+  boxes.blue.style.top = b.y + 'px';
+}
+
+function render(c) {
+  counts.red.textContent = c.red;
+  counts.blue.textContent = c.blue;
+}
+
+placeRandomly();
+
+const ws = new WebSocket(`ws://${location.host}`);
+let myId = null;
+
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+
+  if (msg.type === 'init') {
+    myId = msg.id;
+    const odd = myId % 2 === 1;
+    info.textContent = `Client #${myId} (${odd ? 'dispari → può cliccare il ROSSO' : 'pari → può cliccare il BLU'})`;
+    (odd ? boxes.blue : boxes.red).classList.add('disabled');
+    render(msg.counters);
+  }
+
+  if (msg.type === 'counters') {
+    render(msg.counters);
+  }
+
+  if (msg.type === 'denied') {
+    info.textContent = `Client #${myId}: non puoi incrementare il ${msg.color === 'red' ? 'ROSSO' : 'BLU'}`;
+  }
+};
+
+ws.onclose = () => {
+  info.textContent = 'Disconnesso dal server';
+};
+
+['red', 'blue'].forEach((color) => {
+  boxes[color].addEventListener('click', () => {
+    ws.send(JSON.stringify({ type: 'click', color }));
+  });
+});
+</script>
+</body>
+</html>
