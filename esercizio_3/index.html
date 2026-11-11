@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Matrice Rosso/Blu</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 10px; }
+  #info { margin-bottom: 8px; }
+  #punteggio { margin-bottom: 8px; font-size: 1.1rem; }
+  #punteggio .red  { color: #d62828; font-weight: bold; }
+  #punteggio .blue { color: #1d4ed8; font-weight: bold; }
+  #esito { font-size: 1.4rem; font-weight: bold; min-height: 1.6rem; }
+  #matrice { position: relative; }
+  .oggetto {
+    background-color: white;
+    color: white;
+    font-size: 11px;
+    text-align: center;
+    border: 1px solid black;
+    position: absolute;
+    cursor: pointer;
+    box-sizing: border-box;
+  }
+  .oggetto.red  { background-color: #d62828; cursor: default; }
+  .oggetto.blue { background-color: #1d4ed8; cursor: default; }
+  .finita .oggetto { cursor: not-allowed; }
+</style>
+</head>
+<body>
+<div id="info">Connessione…</div>
+<div id="punteggio">
+  <span class="red">ROSSO (dispari): <span id="redCount">0</span></span>
+  &nbsp;|&nbsp;
+  <span class="blue">BLU (pari): <span id="blueCount">0</span></span>
+  &nbsp;— obiettivo: <span id="obiettivo">150</span>
+  <button id="reset">Nuova partita</button>
+</div>
+<div id="esito"></div>
+<div id="matrice"></div>
+
+<script>
+const info = document.getElementById('info');
+const esito = document.getElementById('esito');
+const matrice = document.getElementById('matrice');
+const nomi = { red: 'ROSSO', blue: 'BLU' };
+
+const zh = 30;
+const zw = 30;
+let myId = null;
+let mioColore = null;
+
+// crea la matrice di caselle come in ws_socket_07
+function creaMatrice(zr, zc) {
+  matrice.innerHTML = '';
+  for (let j = 0; j < zr; j++) {
+    for (let i = 0; i < zc; i++) {
+      const nuovo = document.createElement('div');
+      nuovo.setAttribute('name', 'A');
+      nuovo.setAttribute('class', 'oggetto');
+      nuovo.style.height = zh + 'px';
+      nuovo.style.width = zw + 'px';
+      nuovo.style.top = (j * (zh + 3)) + 'px';
+      nuovo.style.left = (i * (zw + 3)) + 'px';
+
+      const index = j * zc + i;
+      nuovo.addEventListener('click', () => {
+        webSocket.send(JSON.stringify({ type: 'click', pos: index }));
+      });
+
+      matrice.appendChild(nuovo);
+    }
+  }
+  matrice.style.height = (zr * (zh + 3)) + 'px';
+}
+
+function colora(ti, colore, chi) {
+  const el = document.getElementsByName('A');
+  el[ti].className = 'oggetto ' + colore;
+  el[ti].innerHTML = chi !== undefined ? chi : '';
+}
+
+function aggiornaContatori(c) {
+  document.getElementById('redCount').textContent = c.red;
+  document.getElementById('blueCount').textContent = c.blue;
+}
+
+function mostraVittoria(vincitore, chi) {
+  matrice.classList.add('finita');
+  const mia = vincitore === mioColore;
+  esito.style.color = vincitore === 'red' ? '#d62828' : '#1d4ed8';
+  esito.textContent = 'Vince il ' + nomi[vincitore] + '!' +
+    (chi !== undefined ? ' (casella decisiva del client #' + chi + ')' : '') +
+    (mia ? ' — HAI VINTO' : ' — hai perso');
+}
+
+function ripristina(caselle, contatori) {
+  const el = document.getElementsByName('A');
+  for (let k = 0; k < caselle.length; k++) {
+    el[k].className = 'oggetto' + (caselle[k] ? ' ' + caselle[k] : '');
+    el[k].innerHTML = '';
+  }
+  aggiornaContatori(contatori);
+  matrice.classList.remove('finita');
+  esito.textContent = '';
+}
+
+const webSocket = new WebSocket(location.origin.replace(/^http/, 'ws'));
+
+webSocket.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+
+  if (data.type === 'init') {
+    myId = data.id;
+    mioColore = data.colore;
+    info.innerHTML = 'Sei il client #' + myId + ' (' +
+      (myId % 2 === 1 ? 'dispari' : 'pari') + ') e colori di <b style="color:' +
+      (mioColore === 'red' ? '#d62828' : '#1d4ed8') + '">' + nomi[mioColore] + '</b>';
+    document.getElementById('obiettivo').textContent = data.obiettivo;
+    creaMatrice(data.righe, data.colonne);
+    ripristina(data.caselle, data.contatori);
+    if (data.vincitore) mostraVittoria(data.vincitore);
+  }
+
+  if (data.type === 'position') {
+    colora(data.ti, data.colore, data.chi);
+    aggiornaContatori(data.contatori);
+  }
+
+  if (data.type === 'vittoria') {
+    aggiornaContatori(data.contatori);
+    mostraVittoria(data.vincitore, data.chi);
+  }
+
+  if (data.type === 'reset') {
+    ripristina(data.caselle, data.contatori);
+  }
+};
+
+webSocket.onclose = () => {
+  info.textContent = 'Disconnesso dal server';
+};
+
+document.getElementById('reset').addEventListener('click', () => {
+  webSocket.send(JSON.stringify({ type: 'reset' }));
+});
+</script>
+</body>
+</html>
