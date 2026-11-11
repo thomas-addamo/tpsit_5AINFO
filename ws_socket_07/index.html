@@ -1,0 +1,83 @@
+
+
+<html>
+
+<head>
+   <style type="text/css">
+      .oggetto
+      {
+         background-color:white;
+         color:white;
+         text-align:center;
+         border-width:1px;
+         border: solid black;
+         position:absolute;
+      }
+  </style>
+
+</head>
+
+<body>
+</body>
+
+</html>
+
+<script>
+
+   zr=15;
+   zc=20;
+   zh=30;
+   zw=30;
+   for(j=0;j<zr;j++)
+   {
+      for(i=0;i<zc;i++)
+      {
+         l=10+(i*(zw+3));
+         t=10+(j*(zh+3));
+         nuovo = document.createElement('div');
+         nuovo.setAttribute('name', 'A');
+         nuovo.setAttribute('class', 'oggetto');
+         nuovo.setAttribute('valore', 0);
+         nuovo.style.height=zh;
+         nuovo.style.width=zw;
+         nuovo.style.top=t;
+         nuovo.style.left=l;
+         document.body.appendChild(nuovo);
+      }
+   }
+
+
+    let webSocket = new WebSocket(location.origin.replace(/^http/, 'ws'));
+    let el;
+    let chi;
+
+    webSocket.onmessage = (event) => {
+       const data = JSON.parse(event.data);
+
+       const el = document.getElementsByName('A');
+       ti=data.position.ti;
+       colore=data.position.colore;
+       chi=data.position.chi;
+       el[ti].valore=chi;
+       el[ti].style.backgroundColor=colore
+       el[ti].innerHTML=chi;
+   };
+   
+   const d = document.getElementsByName('A');
+   for(i=0;i<d.length;i++)
+   {
+      (function(index){
+          d[index].addEventListener("click", function() {
+ 
+             let manda = {
+                pos: index
+             }
+             const data = JSON.stringify({'manda': manda});
+             webSocket.send(data);
+
+          });
+       })(i);
+   }
+      
+</script>
+
